@@ -493,16 +493,31 @@ class Device:
             `FLUSH_INPUT` (just the rx buffer);
             `FLUSH_OUTPUT` (just the tx buffer)
         """
-        if flush_what == FLUSH_BOTH:
-            fn = self.fdll.ftdi_usb_purge_buffers
-        elif flush_what == FLUSH_INPUT:
-            fn = self.fdll.ftdi_usb_purge_rx_buffer
-        elif flush_what == FLUSH_OUTPUT:
-            fn = self.fdll.ftdi_usb_purge_tx_buffer
-        else:
-            raise ValueError(
-                f"Invalid value passed to {self.__class__.__name__}.flush()"
-            )
+
+        # Prefer the libftdi >= 1.5 POSIX-style functions if they exist
+        if hasattr(self.fdll, "ftdi_tcioflush"):
+            if flush_what == FLUSH_BOTH:
+                fn = self.fdll.ftdi_tcioflush
+            elif flush_what == FLUSH_INPUT:
+                fn = self.fdll.ftdi_tciflush
+            elif flush_what == FLUSH_OUTPUT:
+                fn = self.fdll.ftdi_tcoflush
+            else:
+                raise ValueError(
+                    f"Invalid value passed to {self.__class__.__name__}.flush()"
+                )
+        else: # fall back for older libftdi
+            if flush_what == FLUSH_BOTH:
+                fn = self.fdll.ftdi_usb_purge_buffers
+            elif flush_what == FLUSH_INPUT:
+                fn = self.fdll.ftdi_usb_purge_rx_buffer
+            elif flush_what == FLUSH_OUTPUT:
+                fn = self.fdll.ftdi_usb_purge_tx_buffer
+            else:
+                raise ValueError(
+                    f"Invalid value passed to {self.__class__.__name__}.flush()"
+                )
+
         res = fn(byref(self.ctx))
         if res != 0:
             msg = "%s (%d)" % (self.get_error_string(), res)
